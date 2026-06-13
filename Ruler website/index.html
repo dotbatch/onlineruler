@@ -82,6 +82,12 @@
     background:rgba(15,21,48,.72);backdrop-filter:blur(8px);
     border:1px solid var(--line);border-radius:14px;padding:7px;
   }
+  .drag-grip{
+    color:var(--muted);font-size:20px;line-height:1;cursor:grab;touch-action:none;
+    padding:0 6px;display:flex;align-items:center;align-self:stretch;
+  }
+  .drag-grip:active{cursor:grabbing;color:var(--accent);}
+  .drag-grip.pinned{opacity:.35;cursor:not-allowed;}
   .unit-toggle{display:flex;background:var(--face);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
   .unit-toggle button{background:transparent;border:none;color:var(--muted);font-weight:700;font-size:13px;padding:8px 11px;cursor:pointer;}
   .unit-toggle button.on{background:var(--accent-soft);color:var(--accent);}
@@ -139,7 +145,8 @@
       <div class="handle corner-h" data-axis="xy"><div class="grip"></div></div>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar" id="toolbar">
+      <div class="drag-grip" id="dragGrip" title="Drag to move">⠿</div>
       <div class="unit-toggle" id="unitToggle">
         <button data-u="cm" class="on">cm</button>
         <button data-u="in">in</button>
@@ -336,13 +343,56 @@
     lockBtn.classList.toggle('locked',locked);
     lockBtn.title=locked?'Calibration locked — tap to unlock':'Lock calibration';
     calBtn.disabled=locked;
+    var g=document.getElementById('dragGrip'); if(g) g.classList.toggle('pinned',locked);
     if(locked) closeCal();
   }
   lockBtn.addEventListener('click',()=>{locked=!locked;store.setLocked(locked);applyLock();});
 
-  window.addEventListener('resize',redraw);
+  // -------- draggable toolbar + orientation-aware default position --------
+  const toolbar=document.getElementById('toolbar');
+  const grip=document.getElementById('dragGrip');
+  let tbDrag=null, lastLandscape=null;
+
+  function placeToolbar(left,top){
+    const r=stage.getBoundingClientRect();
+    const w=toolbar.offsetWidth, h=toolbar.offsetHeight;
+    left=Math.max(6,Math.min(left, r.width-w-6));
+    top =Math.max(6,Math.min(top,  r.height-h-6));
+    toolbar.style.left=left+'px'; toolbar.style.top=top+'px'; toolbar.style.right='auto';
+  }
+  function defaultToolbarPos(){
+    const r=stage.getBoundingClientRect();
+    const w=toolbar.offsetWidth, h=toolbar.offsetHeight;
+    if(r.width>r.height) placeToolbar(r.width-w-12, r.height-h-12); // landscape → bottom-right
+    else                 placeToolbar(r.width-w-12, 10);           // portrait  → top-right
+  }
+  grip.addEventListener('pointerdown',e=>{
+    if(locked) return;            // lock also pins the toolbar in place
+    const b=toolbar.getBoundingClientRect();
+    tbDrag={dx:e.clientX-b.left, dy:e.clientY-b.top};
+    grip.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  window.addEventListener('pointermove',e=>{
+    if(!tbDrag) return;
+    const r=stage.getBoundingClientRect();
+    placeToolbar(e.clientX-r.left-tbDrag.dx, e.clientY-r.top-tbDrag.dy);
+  });
+  window.addEventListener('pointerup',()=>{tbDrag=null;});
+
+  function handleResize(){
+    redraw();
+    const r=stage.getBoundingClientRect();
+    const ls=r.width>r.height;
+    if(ls!==lastLandscape){ lastLandscape=ls; defaultToolbarPos(); }      // flipped → reset corner
+    else placeToolbar(parseFloat(toolbar.style.left)||0, parseFloat(toolbar.style.top)||0); // keep, but clamp
+  }
+  window.addEventListener('resize',handleResize);
+  window.addEventListener('orientationchange',()=>setTimeout(handleResize,200));
+
   applyLock();
   redraw();
+  lastLandscape=stage.getBoundingClientRect().width>stage.getBoundingClientRect().height;
+  defaultToolbarPos();
 })();
 </script>
 </body>
