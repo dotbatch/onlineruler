@@ -88,6 +88,9 @@
   }
   .drag-grip:active{cursor:grabbing;color:var(--accent);}
   .drag-grip.pinned{opacity:.35;cursor:not-allowed;}
+  .toolbar.collapsed .drag-grip,
+  .toolbar.collapsed .unit-toggle,
+  .toolbar.collapsed .btn-cal{display:none;}
   .unit-toggle{display:flex;background:var(--face);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
   .unit-toggle button{background:transparent;border:none;color:var(--muted);font-weight:700;font-size:13px;padding:8px 11px;cursor:pointer;}
   .unit-toggle button.on{background:var(--accent-soft);color:var(--accent);}
@@ -338,15 +341,26 @@
   calOverlay.addEventListener('click',e=>{ if(e.target===calOverlay) closeCal(); });
 
   // -------- lock --------
+  const SVG_LOCKED='<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>';
+  const SVG_OPEN='<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.2"/><path d="M8 10.5V7a4 4 0 0 1 7.6-2"/></svg>';
   function applyLock(){
-    lockBtn.textContent=locked?'🔒':'🔓';
+    lockBtn.innerHTML=locked?SVG_LOCKED:SVG_OPEN;
     lockBtn.classList.toggle('locked',locked);
+    var tb=document.getElementById('toolbar'); if(tb) tb.classList.toggle('collapsed',locked);
     lockBtn.title=locked?'Calibration locked — tap to unlock':'Lock calibration';
     calBtn.disabled=locked;
     var g=document.getElementById('dragGrip'); if(g) g.classList.toggle('pinned',locked);
     if(locked) closeCal();
   }
-  lockBtn.addEventListener('click',()=>{locked=!locked;store.setLocked(locked);applyLock();});
+  lockBtn.addEventListener('click',()=>{
+    const tb=document.getElementById('toolbar');
+    const before=tb.getBoundingClientRect();
+    locked=!locked; store.setLocked(locked); applyLock();
+    requestAnimationFrame(()=>{
+      const r=stage.getBoundingClientRect();
+      placeToolbar(before.right-r.left-tb.offsetWidth, before.top-r.top);
+    });
+  });
 
   // -------- draggable toolbar + orientation-aware default position --------
   const toolbar=document.getElementById('toolbar');
