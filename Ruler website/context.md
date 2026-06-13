@@ -2,6 +2,8 @@
 
 Context file for AI assistants working on this project. Read this first.
 
+![Online Ruler — actual-size measuring tool with edge rulers, a draggable orange block, live cm/in readouts, and a calibration toolbar](screenshot.svg)
+
 ## What this is
 
 A free **online ruler** web tool that measures objects on screen at actual (real-world) size in cm, mm, and inches. Single static HTML page, no build step, no backend. Goal is to rank on Google/Bing for "online ruler" and related queries (see SEO files).
