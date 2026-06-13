@@ -4,6 +4,8 @@
 
 > Calibrate once with a credit card, then drag the orange block to wrap your object. Width and height read out live, at true real-world size.
 
+![Online Ruler screenshot](screenshot.svg)
+
 ---
 
 ## ✨ Features
