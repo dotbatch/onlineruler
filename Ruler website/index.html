@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Online Ruler — Actual Size in cm, mm &amp; Inches on Screen</title>
+<meta name="description" content="Free online ruler in actual size. Measure objects on screen in cm, mm and inches. Calibrate with a credit card and use any phone, tablet or desktop as a ruler.">
+<meta name="keywords" content="online ruler, ruler online, online ruler actual size, actual size ruler, cm ruler, mm ruler, inch ruler, screen ruler, virtual ruler, digital ruler, measure on screen, online measuring tool, centimeter ruler, millimeter ruler, metric ruler, imperial ruler, pixel ruler, free online ruler, calibrate ruler">
+<meta property="og:title" content="Online Ruler — Actual Size in cm, mm &amp; Inches">
+<meta property="og:description" content="Measure anything on your screen at real size. Free virtual ruler in cm, mm and inches — calibrate with a credit card, works on any device.">
+<meta property="og:type" content="website">
+<style>
+  :root{
+    --bg:#0f1530;
+    --bg2:#131a36;
+    --face:#161e40;
+    --accent:#f6a623;
+    --accent-soft:rgba(246,166,35,.16);
+    --ink:#f6a623;
+    --block:rgba(246,166,35,.92);
+    --text:#e7ecff;
+    --muted:#8a93b8;
+    --line:#2a335e;
+    --strip:46px;   /* thickness of the edge rulers */
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    overflow-x:hidden;
+  }
+
+  /* ---------------- STAGE (full-viewport measuring area) ---------------- */
+  .stage{
+    position:relative;width:100%;height:100vh;height:100dvh;
+    background:var(--bg);overflow:hidden;touch-action:none;user-select:none;
+    border-bottom:1px solid var(--line);
+  }
+
+  /* edge ruler strips */
+  .ruler-top,.ruler-left{position:absolute;z-index:5;pointer-events:none;}
+  .ruler-top{top:0;left:0;width:100%;height:var(--strip);}
+  .ruler-left{top:0;left:0;width:var(--strip);height:100%;}
+  .corner{
+    position:absolute;top:0;left:0;width:var(--strip);height:var(--strip);z-index:7;
+    background:var(--bg);border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.5px;
+  }
+  .tick{position:absolute;background:var(--ink);}
+  .tnum{position:absolute;color:var(--ink);font-size:13px;font-weight:700;}
+
+  /* the draggable measuring block, anchored to the top-left corner */
+  .block{
+    position:absolute;left:var(--strip);top:var(--strip);z-index:6;
+    background:var(--block);
+    box-shadow:0 0 0 2px rgba(246,166,35,.9) inset;
+    will-change:width,height;
+  }
+  .h-readout,.v-readout{
+    position:absolute;color:#1a1300;font-weight:800;white-space:nowrap;
+    font-variant-numeric:tabular-nums;text-shadow:0 1px 0 rgba(255,255,255,.25);
+  }
+  .h-readout{bottom:8px;left:50%;transform:translateX(-50%);font-size:clamp(16px,4.5vw,30px);}
+  .v-readout{right:10px;top:50%;transform:translateY(-50%) rotate(90deg);transform-origin:right center;font-size:clamp(16px,4.5vw,30px);}
+
+  /* resize handles */
+  .handle{position:absolute;z-index:8;touch-action:none;}
+  .handle .grip{position:absolute;background:#1a1300;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 8px rgba(0,0,0,.4);}
+  .handle.corner-h{right:-17px;bottom:-17px;width:46px;height:46px;cursor:nwse-resize;}
+  .handle.corner-h .grip{right:6px;bottom:6px;width:22px;height:22px;}
+  .handle.edge-r{right:-15px;top:0;width:30px;height:100%;cursor:ew-resize;}
+  .handle.edge-r .grip{right:9px;top:50%;transform:translateY(-50%);width:14px;height:34px;border-radius:8px;}
+  .handle.edge-b{bottom:-15px;left:0;height:30px;width:100%;cursor:ns-resize;}
+  .handle.edge-b .grip{bottom:9px;left:50%;transform:translateX(-50%);height:14px;width:34px;border-radius:8px;}
+
+  /* floating toolbar sitting ON TOP of the ruler, top-right */
+  .toolbar{
+    position:absolute;top:10px;right:12px;z-index:20;
+    display:flex;align-items:center;gap:8px;
+    background:rgba(15,21,48,.72);backdrop-filter:blur(8px);
+    border:1px solid var(--line);border-radius:14px;padding:7px;
+  }
+  .unit-toggle{display:flex;background:var(--face);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  .unit-toggle button{background:transparent;border:none;color:var(--muted);font-weight:700;font-size:13px;padding:8px 11px;cursor:pointer;}
+  .unit-toggle button.on{background:var(--accent-soft);color:var(--accent);}
+  .btn{border:none;cursor:pointer;font-weight:700;border-radius:10px;display:inline-flex;align-items:center;gap:7px;transition:transform .08s,opacity .15s,background .15s;}
+  .btn:active{transform:scale(.95);}
+  .btn-cal{background:var(--accent);color:#1a1300;font-size:14px;padding:9px 14px;box-shadow:0 4px 14px rgba(246,166,35,.35);}
+  .btn-cal[disabled]{background:#3a3f5c;color:#7c84a8;box-shadow:none;cursor:not-allowed;}
+  .btn-lock{background:var(--face);color:var(--text);border:1px solid var(--line);width:40px;height:40px;justify-content:center;font-size:17px;padding:0;}
+  .btn-lock.locked{background:var(--accent);color:#1a1300;border-color:var(--accent);}
+
+  .size-pill{
+    position:absolute;left:50%;bottom:16px;transform:translateX(-50%);z-index:15;
+    background:rgba(15,21,48,.78);backdrop-filter:blur(8px);border:1px solid var(--line);
+    color:var(--text);font-weight:700;font-size:14px;padding:9px 16px;border-radius:999px;
+    font-variant-numeric:tabular-nums;
+  }
+  .size-pill b{color:var(--accent);}
+
+  /* ---------------- Calibration modal ---------------- */
+  .overlay{position:fixed;inset:0;z-index:60;background:rgba(6,9,22,.72);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:18px;}
+  .overlay.open{display:flex;}
+  .sheet{background:var(--bg2);border:1px solid var(--line);border-radius:18px;max-width:560px;width:100%;padding:22px;}
+  .sheet h2{margin:0 0 6px;font-size:18px;}
+  .sheet p{margin:0 0 14px;color:var(--muted);font-size:13px;line-height:1.55;}
+  .card-ref{height:62px;background:linear-gradient(135deg,#f6a623,#e8890f);border-radius:8px;color:#1a1300;font-weight:800;display:flex;align-items:flex-end;justify-content:space-between;padding:8px 10px;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.4);position:relative;margin-bottom:14px;}
+  .card-ref .chip{position:absolute;top:10px;left:12px;width:26px;height:20px;border-radius:4px;background:#d8a200;}
+  .cal-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+  .cal-controls input[type=range]{flex:1;min-width:180px;accent-color:var(--accent);height:28px;}
+  .step{width:42px;height:42px;border-radius:10px;border:1px solid var(--line);background:var(--face);color:var(--text);font-size:20px;font-weight:700;cursor:pointer;}
+  .readout{color:var(--accent);font-weight:700;font-size:13px;white-space:nowrap;}
+  .cal-actions{display:flex;gap:10px;}
+  .btn-save{background:var(--accent);color:#1a1300;padding:11px 18px;font-size:15px;}
+  .btn-reset{background:var(--face);color:var(--text);border:1px solid var(--line);padding:11px 18px;font-size:15px;}
+  .btn-close{margin-left:auto;background:transparent;color:var(--muted);padding:11px 14px;font-size:15px;}
+
+  /* ---------------- SEO content below the fold ---------------- */
+  .info{max-width:760px;margin:0 auto;padding:30px 20px 60px;color:var(--muted);font-size:15px;line-height:1.65;}
+  .info h1{color:var(--text);font-size:24px;margin:0 0 8px;}
+  .info h2{color:var(--text);font-size:18px;margin:24px 0 8px;}
+  a{color:var(--accent);}
+</style>
+</head>
+<body>
+
+  <div class="stage" id="stage">
+    <div class="ruler-top" id="rulerTop"></div>
+    <div class="ruler-left" id="rulerLeft"></div>
+    <div class="corner" id="corner">cm</div>
+
+    <div class="block" id="block">
+      <div class="h-readout" id="hRead">6.0 cm</div>
+      <div class="v-readout" id="vRead">7.0 cm</div>
+      <div class="handle edge-r" data-axis="x"><div class="grip"></div></div>
+      <div class="handle edge-b" data-axis="y"><div class="grip"></div></div>
+      <div class="handle corner-h" data-axis="xy"><div class="grip"></div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="unit-toggle" id="unitToggle">
+        <button data-u="cm" class="on">cm</button>
+        <button data-u="in">in</button>
+      </div>
+      <button class="btn btn-cal" id="calBtn">⚙ Calibrate</button>
+      <button class="btn btn-lock" id="lockBtn" title="Lock calibration">🔓</button>
+    </div>
+
+    <div class="size-pill" id="sizePill"></div>
+  </div>
+
+  <!-- Calibration modal -->
+  <div class="overlay" id="calOverlay">
+    <div class="sheet">
+      <h2>Calibrate to actual size</h2>
+      <p>Place a standard card (credit / ID card, <strong>85.6&nbsp;mm</strong> wide) flat on your screen and drag the slider until the orange bar exactly matches the card's width.</p>
+      <div class="card-ref" id="cardRef"><div class="chip"></div><span>CREDIT CARD</span><span>85.6 mm</span></div>
+      <div class="cal-controls">
+        <button class="step" id="minus">−</button>
+        <input type="range" id="calSlider" min="20" max="80" step="0.1" value="37.795">
+        <button class="step" id="plus">+</button>
+        <span class="readout" id="calReadout"></span>
+      </div>
+      <div class="cal-actions">
+        <button class="btn btn-save" id="saveBtn">Save</button>
+        <button class="btn btn-reset" id="resetBtn">Reset</button>
+        <button class="btn btn-close" id="closeBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="info">
+    <h1>Online Ruler — Actual Size in cm, mm &amp; Inches</h1>
+    <p>A free virtual ruler that measures objects on your screen at real size. The scale runs along the top and left edges at once, so you can read width and height together — just drag the orange block to wrap your object. Works on any phone, tablet or desktop.</p>
+    <h2>How to calibrate the ruler</h2>
+    <p>Screens differ in pixel density, so calibrate once for true actual-size accuracy. Tap <strong>Calibrate</strong>, lay a bank or credit card on the screen and match the orange bar to it. The setting is saved on this device. Tap the <strong>lock</strong> 🔒 afterwards so you don't bump Calibrate by accident.</p>
+    <h2>Use your phone as a ruler</h2>
+    <p>Once calibrated, place your object in the top-left corner and drag the handles until the block covers it. The live width (horizontal) and height (vertical) update instantly in cm or inches.</p>
+  </div>
+
+<script>
+(function(){
+  const DEFAULT_PXCM = 37.795275591; // 96 dpi
+  const CARD_MM = 85.6, MM_IN = 25.4;
+  const ORIGIN = 46; // matches --strip
+
+  const store={
+    get(){try{const v=localStorage.getItem('ruler.pxcm');return v?parseFloat(v):null;}catch(e){return null;}},
+    set(v){try{localStorage.setItem('ruler.pxcm',v);}catch(e){}},
+    clear(){try{localStorage.removeItem('ruler.pxcm');}catch(e){}},
+    locked(){try{return localStorage.getItem('ruler.locked')==='1';}catch(e){return false;}},
+    setLocked(b){try{localStorage.setItem('ruler.locked',b?'1':'0');}catch(e){}}
+  };
+
+  let pxPerCm = store.get() || DEFAULT_PXCM;
+  let pending = pxPerCm;
+  let unit='cm';
+  let locked = store.locked();
+
+  const stage=document.getElementById('stage');
+  const rulerTop=document.getElementById('rulerTop');
+  const rulerLeft=document.getElementById('rulerLeft');
+  const corner=document.getElementById('corner');
+  const block=document.getElementById('block');
+  const hRead=document.getElementById('hRead');
+  const vRead=document.getElementById('vRead');
+  const sizePill=document.getElementById('sizePill');
+  const calBtn=document.getElementById('calBtn');
+  const lockBtn=document.getElementById('lockBtn');
+  const calOverlay=document.getElementById('calOverlay');
+  const slider=document.getElementById('calSlider');
+  const calReadout=document.getElementById('calReadout');
+  const cardRef=document.getElementById('cardRef');
+
+  // block size in px (default 6cm x 7cm)
+  let bw = 6*pxPerCm, bh = 7*pxPerCm;
+
+  function unitsPerCm(){ return unit==='in' ? 1/2.54 : 1; }
+  function fmt(px){
+    const cm=px/pxPerCm;
+    if(unit==='in') return (cm/2.54).toFixed(2)+' in';
+    return cm.toFixed(1)+' cm';
+  }
+
+  function tick(parent,pos,len,vertical,thin){
+    const t=document.createElement('div');t.className='tick';
+    const th=(thin?1:2)+'px';
+    if(vertical){ t.style.left='0';t.style.top=pos+'px';t.style.height=th;t.style.width=len+'px'; }
+    else        { t.style.top='0';t.style.left=pos+'px';t.style.width=th;t.style.height=len+'px'; }
+    parent.appendChild(t);
+  }
+  const NUMOFF=24; // clean band below/right of the ticks for the cm·inch numbers
+  function num(parent,pos,txt,vertical){
+    const n=document.createElement('div');n.className='tnum';n.textContent=txt;
+    if(vertical){ n.style.left=NUMOFF+'px'; n.style.top=(pos-8)+'px'; }
+    else        { n.style.left=(pos+3)+'px'; n.style.top=NUMOFF+'px'; }
+    parent.appendChild(n);
+  }
+
+  function buildEdge(parent,lengthPx,vertical){
+    parent.querySelectorAll('.tick,.tnum').forEach(n=>n.remove());
+    corner.textContent = unit==='in' ? 'in' : 'cm';
+    if(unit==='in'){
+      const pxIn=pxPerCm*2.54, px16=pxIn/16, n16=Math.floor(lengthPx/px16);
+      for(let i=0;i<=n16;i++){
+        const p=ORIGIN+i*px16; if(p>lengthPx) break;
+        let len=7;
+        if(i%2===0)len=10; if(i%4===0)len=13; if(i%8===0)len=17;
+        if(i%16===0){len=20; num(parent,p,(i/16),vertical);}
+        tick(parent,p,len,vertical);
+      }
+    }else{
+      const pxMm=pxPerCm/10, nMm=Math.floor(lengthPx/pxMm);
+      for(let mm=0;mm<=nMm;mm++){
+        const p=ORIGIN+mm*pxMm; if(p>lengthPx) break;
+        let len=8, thin=(mm%5!==0);
+        if(mm%5===0)len=14;
+        if(mm%10===0){len=20; num(parent,p,(mm/10),vertical);}
+        tick(parent,p,len,vertical,thin);
+      }
+    }
+  }
+
+  function drawRulers(){
+    buildEdge(rulerTop, stage.clientWidth, false);
+    buildEdge(rulerLeft, stage.clientHeight, true);
+  }
+
+  function clampBlock(){
+    const maxW=stage.clientWidth-ORIGIN-2, maxH=stage.clientHeight-ORIGIN-2;
+    bw=Math.max(pxPerCm*0.3, Math.min(bw,maxW));
+    bh=Math.max(pxPerCm*0.3, Math.min(bh,maxH));
+  }
+  function drawBlock(){
+    clampBlock();
+    block.style.width=bw+'px';
+    block.style.height=bh+'px';
+    hRead.textContent=fmt(bw);
+    vRead.textContent=fmt(bh);
+    sizePill.innerHTML='W <b>'+fmt(bw)+'</b> &nbsp;×&nbsp; H <b>'+fmt(bh)+'</b>';
+  }
+  function redraw(){ drawRulers(); drawBlock(); }
+
+  // -------- dragging handles --------
+  let drag=null;
+  function onDown(e){
+    const h=e.target.closest('.handle'); if(!h) return;
+    drag=h.dataset.axis; h.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  }
+  function onMove(e){
+    if(!drag) return;
+    const r=stage.getBoundingClientRect();
+    if(drag.includes('x')) bw=e.clientX-r.left-ORIGIN;
+    if(drag.includes('y')) bh=e.clientY-r.top-ORIGIN;
+    drawBlock();
+  }
+  function onUp(){ drag=null; }
+  stage.addEventListener('pointerdown',onDown);
+  window.addEventListener('pointermove',onMove);
+  window.addEventListener('pointerup',onUp);
+  window.addEventListener('pointercancel',onUp);
+
+  // -------- unit toggle --------
+  document.getElementById('unitToggle').addEventListener('click',e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    unit=b.dataset.u;
+    [...e.currentTarget.children].forEach(c=>c.classList.toggle('on',c===b));
+    redraw();
+  });
+
+  // -------- calibration --------
+  function syncCal(){
+    slider.value=pending.toFixed(3);
+    cardRef.style.width=Math.min(stage.clientWidth-60,(pending/10*CARD_MM))+'px';
+    calReadout.textContent=pending.toFixed(1)+' px/cm · '+(pending/2.54).toFixed(0)+' dpi';
+  }
+  function openCal(){ if(locked) return; pending=pxPerCm; syncCal(); calOverlay.classList.add('open'); }
+  function closeCal(){ calOverlay.classList.remove('open'); }
+  function applyPending(){ pxPerCm=pending; redraw(); }
+
+  calBtn.addEventListener('click',openCal);
+  slider.addEventListener('input',()=>{pending=parseFloat(slider.value);syncCal();applyPending();});
+  document.getElementById('plus').addEventListener('click',()=>{pending=Math.min(80,pending+0.1);syncCal();applyPending();});
+  document.getElementById('minus').addEventListener('click',()=>{pending=Math.max(20,pending-0.1);syncCal();applyPending();});
+  document.getElementById('saveBtn').addEventListener('click',()=>{pxPerCm=pending;store.set(pxPerCm);redraw();closeCal();});
+  document.getElementById('resetBtn').addEventListener('click',()=>{pending=DEFAULT_PXCM;pxPerCm=DEFAULT_PXCM;store.clear();syncCal();redraw();});
+  document.getElementById('closeBtn').addEventListener('click',closeCal);
+  calOverlay.addEventListener('click',e=>{ if(e.target===calOverlay) closeCal(); });
+
+  // -------- lock --------
+  function applyLock(){
+    lockBtn.textContent=locked?'🔒':'🔓';
+    lockBtn.classList.toggle('locked',locked);
+    lockBtn.title=locked?'Calibration locked — tap to unlock':'Lock calibration';
+    calBtn.disabled=locked;
+    if(locked) closeCal();
+  }
+  lockBtn.addEventListener('click',()=>{locked=!locked;store.setLocked(locked);applyLock();});
+
+  window.addEventListener('resize',redraw);
+  applyLock();
+  redraw();
+})();
+</script>
+</body>
+</html>
